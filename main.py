@@ -6,33 +6,50 @@ import os.path
 from azure.storage.blob import BlobServiceClient, ContainerClient, BlobClient
 
 
-def listb(args, containerclient):
-    '''This function list all the blobs of the storage account (container)'''
+def listb(containerclient):
+    """
+    cette fonction retourne la liste des blobs contenu un container
+    elle prend en paramètre un container
+    """
     blob_list=containerclient.list_blobs()
     for blob in blob_list:
         print(blob.name)
 
 
 def upload(cible, blobclient):
-    '''This function upload the file'''
+    """
+    cette fonction permet d'uploader un fichier sous forme de blob dans un container
+    elle prend en paramètres le chemin du fichier en string
+    le container cible
+    """
     with open(cible, "rb") as f:
         blobclient.upload_blob(f)
 
 
 def download(filename, dl_folder, blobclient):
+    """
+    cette fonction permet de télécharger un fichier à partir d'un blob
+    elle prend en paramètre:
+    le nom du blob a télécharger
+    le dossier de desination du téléchargement
+    le container qui contient le blob
+    """
     with open(os.path.join(dl_folder,filename), "wb") as my_blob:
         blob_data=blobclient.download_blob()
         blob_data.readinto(my_blob)
 
 
 def main(args,config):
+    """
+    fonction centrale du projet qui permet d'appeler les autres fonctions et leur paramètre avec le parser
+    """
     blobclient=BlobServiceClient(
         f"https://{config['storage']['account']}.blob.core.windows.net",
         config["storage"]["key"],
         logging_enable=False)
     containerclient=blobclient.get_container_client(config["storage"]["container"])
     if args.action=="list":
-        return listb(args, containerclient)
+        return listb(containerclient)
     else:
         if args.action=="upload":
             blobclient=containerclient.get_blob_client(os.path.basename(args.cible))
@@ -40,8 +57,8 @@ def main(args,config):
         elif args.action=="download":
             blobclient=containerclient.get_blob_client(os.path.basename(args.remote))
             return download(args.remote, config["general"]["restoredir"], blobclient)
-
-
+        elif args.action=="token":
+            create_token_sas()
     
 
 if __name__=="__main__":
@@ -57,12 +74,17 @@ if __name__=="__main__":
     parser_r=subparsers.add_parser("download")
     parser_r.add_argument("remote",help="nom du fichier à télécharger")
     parser_r=subparsers.add_parser("list")
-
-
+    parser_s=subparsers.add_parser("token")
     args=parser.parse_args()
 
     #erreur dans logging.warning : on a la fonction au lieu de l'entier
-    loglevels={"debug":logging.DEBUG, "info":logging.INFO, "warning":logging.WARNING, "error":logging.ERROR, "critical":logging.CRITICAL}
+    loglevels={
+        "debug":logging.DEBUG,
+        "info":logging.INFO,
+        "warning":logging.WARNING,
+        "error":logging.ERROR,
+        "critical":logging.CRITICAL
+    }
     print(loglevels[args.lvl.lower()])
     logging.basicConfig(level=loglevels[args.lvl.lower()])
 
